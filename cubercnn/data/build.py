@@ -13,18 +13,18 @@ from detectron2.data.catalog import DatasetCatalog
 from detectron2.data.common import DatasetFromList, MapDataset
 from detectron2.data.dataset_mapper import DatasetMapper
 from detectron2.data.samplers import (
-    InferenceSampler, 
-    RepeatFactorTrainingSampler, 
+    InferenceSampler,
+    RepeatFactorTrainingSampler,
     TrainingSampler
 )
 from detectron2.data.build import (
-    filter_images_with_only_crowd_annotations, 
+    filter_images_with_only_crowd_annotations,
     build_batch_data_loader,
     trivial_batch_collator
 )
 
 def get_detection_dataset_dicts(names, filter_empty=True, **kwargs):
-    
+
     if isinstance(names, str):
         names = [names]
 
@@ -36,7 +36,7 @@ def get_detection_dataset_dicts(names, filter_empty=True, **kwargs):
     dataset_dicts = list(itertools.chain.from_iterable(dataset_dicts))
 
     has_instances = "annotations" in dataset_dicts[0]
-    
+
     if filter_empty and has_instances:
         dataset_dicts = filter_images_with_only_crowd_annotations(dataset_dicts)
 
@@ -75,14 +75,14 @@ def _train_loader_from_config(cfg, mapper=None, *, dataset=None, sampler=None, d
             # only one source? don't re-weight then.
             if len(dataset_ids) == 1:
                 weights_per_img = torch.ones(len(dataset_ids_per_img)).float()
-            
+
             # compute per-dataset weights.
             else:
                 counts = np.bincount(dataset_ids_per_img)
                 counts = [counts[id] for id in dataset_ids]
                 weights = [1 - count/np.sum(counts) for count in counts]
                 weights = [weight/np.min(weights) for weight in weights]
-                
+
                 weights_per_img = torch.zeros(len(dataset_ids_per_img)).float()
                 dataset_ids_per_img = torch.FloatTensor(dataset_ids_per_img).long()
 
@@ -97,7 +97,7 @@ def _train_loader_from_config(cfg, mapper=None, *, dataset=None, sampler=None, d
         # balance the weight sampling by datasets
         elif sampler_name == "TrainingSampler" and balance_datasets:
             sampler = RepeatFactorTrainingSampler(weights_per_img)
-        
+
         # balance the weight sampling by categories
         elif sampler_name == "RepeatFactorTrainingSampler" and not balance_datasets:
             repeat_factors = repeat_factors_from_category_frequency(
@@ -187,7 +187,8 @@ def build_detection_train_loader(dataset, *, mapper, sampler=None, total_batch_s
         sampler,
         total_batch_size,
         aspect_ratio_grouping=aspect_ratio_grouping,
-        num_workers=num_workers
+        num_workers=num_workers,
+        prefetch_factor=2
     )
 
 def _test_loader_from_config(cfg, dataset_name, mapper=None):
@@ -210,7 +211,7 @@ def _test_loader_from_config(cfg, dataset_name, mapper=None):
 
 @configurable(from_config=_test_loader_from_config)
 def build_detection_test_loader(dataset, *, mapper, sampler=None, num_workers=0):
-    
+
     if isinstance(dataset, list):
         dataset = DatasetFromList(dataset, copy=False)
     if mapper is not None:

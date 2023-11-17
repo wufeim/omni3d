@@ -1,0 +1,21 @@
+_BASE_: "Base.yaml"
+SOLVER:
+  TYPE: "sgd"
+  IMS_PER_BATCH: 32
+  BASE_LR: 0.02
+  STEPS: (139200, 185600)
+  MAX_ITER: 232000
+  WARMUP_ITERS: 7250
+  CHECKPOINT_PERIOD: 11600
+TEST:
+  EVAL_PERIOD: 58000
+VIS_PERIOD: 4640
+DATASETS:
+  TRAIN: ('ARKitScenes_train', 'ARKitScenes_val')
+  TEST: ('ARKitScenes_test',)
+  CATEGORY_NAMES: ('table', 'bed', 'sofa', 'television', 'refrigerator', 'chair', 'oven', 'machine', 'stove', 'shelves', 'sink', 'cabinet', 'bathtub', 'toilet')
+MODEL:
+  ROI_HEADS:
+    NUM_CLASSES: 14
+  STABILIZE: 0.2
+OUTPUT_DIR: exp/omni3d_arkit_baseline_05

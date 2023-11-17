@@ -56,9 +56,9 @@ This file contains
 logger = logging.getLogger(__name__)
 
 # Defines the max cross of len(dts) * len(gts)
-# which we will attempt to compute on a GPU. 
-# Fallback is safer computation on a CPU. 
-# 0 is disabled on GPU. 
+# which we will attempt to compute on a GPU.
+# Fallback is safer computation on a CPU.
+# 0 is disabled on GPU.
 MAX_DTS_CROSS_GTS_FOR_IOU3D = 0
 
 
@@ -82,7 +82,7 @@ def _check_coplanar(boxes: torch.Tensor, eps: float = 1e-4) -> torch.BoolTensor:
     # Check the fourth vertex is also on the same plane
     mat1 = (v3 - v0).view(B, 1, -1)  # (B, 1, P*3)
     mat2 = normal.view(B, -1, 1)  # (B, P*3, 1)
-    
+
     return (mat1.bmm(mat2).abs() < eps).view(B)
 
 
@@ -104,7 +104,7 @@ def _check_nonzero(boxes: torch.Tensor, eps: float = 1e-8) -> torch.BoolTensor:
     return (face_areas > eps).all(1).view(B)
 
 def box3d_overlap(
-    boxes_dt: torch.Tensor, boxes_gt: torch.Tensor, 
+    boxes_dt: torch.Tensor, boxes_gt: torch.Tensor,
     eps_coplanar: float = 1e-4, eps_nonzero: float = 1e-8
 ) -> torch.Tensor:
     """
@@ -148,7 +148,7 @@ def box3d_overlap(
         iou: (N, M) tensor of the intersection over union which is
             defined as: `iou = vol / (vol1 + vol2 - vol)`
     """
-    # Make sure predictions are coplanar and nonzero 
+    # Make sure predictions are coplanar and nonzero
     invalid_coplanar = ~_check_coplanar(boxes_dt, eps=eps_coplanar)
     invalid_nonzero  = ~_check_nonzero(boxes_dt, eps=eps_nonzero)
 
@@ -158,7 +158,7 @@ def box3d_overlap(
     if invalid_coplanar.any():
         ious[invalid_coplanar] = 0
         print('Warning: skipping {:d} non-coplanar boxes at eval.'.format(int(invalid_coplanar.float().sum())))
-    
+
     if invalid_nonzero.any():
         ious[invalid_nonzero] = 0
         print('Warning: skipping {:d} zero volume boxes at eval.'.format(int(invalid_nonzero.float().sum())))
@@ -166,22 +166,22 @@ def box3d_overlap(
     return ious
 
 class Omni3DEvaluationHelper:
-    def __init__(self, 
-            dataset_names, 
-            filter_settings, 
+    def __init__(self,
+            dataset_names,
+            filter_settings,
             output_folder,
             iter_label='-',
             only_2d=False,
         ):
         """
-        A helper class to initialize, evaluate and summarize Omni3D metrics. 
+        A helper class to initialize, evaluate and summarize Omni3D metrics.
 
-        The evaluator relies on the detectron2 MetadataCatalog for keeping track 
-        of category names and contiguous IDs. Hence, it is important to set 
-        these variables appropriately. 
-        
+        The evaluator relies on the detectron2 MetadataCatalog for keeping track
+        of category names and contiguous IDs. Hence, it is important to set
+        these variables appropriately.
+
         # (list[str]) the category names in their contiguous order
-        MetadataCatalog.get('omni3d_model').thing_classes = ... 
+        MetadataCatalog.get('omni3d_model').thing_classes = ...
 
         # (dict[int: int]) the mapping from Omni3D category IDs to the contiguous order
         MetadataCatalog.get('omni3d_model').thing_dataset_id_to_contiguous_id
@@ -194,7 +194,7 @@ class Omni3DEvaluationHelper:
             iter_label (str): an optional iteration/label used within the summary
             only_2d (bool): whether the evaluation mode should be 2D or 2D and 3D.
         """
-        
+
         self.dataset_names = dataset_names
         self.filter_settings = filter_settings
         self.output_folder = output_folder
@@ -213,28 +213,28 @@ class Omni3DEvaluationHelper:
 
         self.overall_imgIds = set()
         self.overall_catIds = set()
-        
+
         # These store the evaluations for each category and area,
         # concatenated from ALL evaluated datasets. Doing so avoids
         # the need to re-compute them when accumulating results.
         self.evals_per_cat_area2D = {}
         self.evals_per_cat_area3D = {}
-        
+
         self.output_folders = {
             dataset_name: os.path.join(self.output_folder, dataset_name)
             for dataset_name in dataset_names
         }
 
         for dataset_name in self.dataset_names:
-            
+
             # register any datasets that need it
             if MetadataCatalog.get(dataset_name).get('json_file') is None:
                 simple_register(dataset_name, filter_settings, filter_empty=False)
-            
+
             # create an individual dataset evaluator
             self.evaluators[dataset_name] = Omni3DEvaluator(
-                dataset_name, output_dir=self.output_folders[dataset_name], 
-                filter_settings=self.filter_settings, only_2d=self.only_2d, 
+                dataset_name, output_dir=self.output_folders[dataset_name],
+                filter_settings=self.filter_settings, only_2d=self.only_2d,
                 eval_prox=('Objectron' in dataset_name or 'SUNRGBD' in dataset_name),
                 distributed=False, # actual evaluation should be single process
             )
@@ -242,11 +242,11 @@ class Omni3DEvaluationHelper:
             self.evaluators[dataset_name].reset()
             self.overall_imgIds.update(set(self.evaluators[dataset_name]._omni_api.getImgIds()))
             self.overall_catIds.update(set(self.evaluators[dataset_name]._omni_api.getCatIds()))
-        
+
     def add_predictions(self, dataset_name, predictions):
         """
         Adds predictions to the evaluator for dataset_name. This can be any number of
-        predictions, including all predictions passed in at once or in batches. 
+        predictions, including all predictions passed in at once or in batches.
 
         Args:
             dataset_name (str): the dataset split name which the predictions belong to
@@ -260,7 +260,7 @@ class Omni3DEvaluationHelper:
                     "instances": [
                         {
                             "image_id":  <int> the unique image identifier from Omni3D,
-                            "category_id": <int> the contiguous category prediction IDs, 
+                            "category_id": <int> the contiguous category prediction IDs,
                                 which can be mapped from Omni3D's category ID's using
                                 MetadataCatalog.get('omni3d_model').thing_dataset_id_to_contiguous_id
                             "bbox": [float] 2D box as [x1, y1, x2, y2] used for IoU2D,
@@ -291,22 +291,22 @@ class Omni3DEvaluationHelper:
 
     def evaluate(self, dataset_name):
         """
-        Runs the evaluation for an individual dataset split, assuming all 
-        predictions have been passed in. 
+        Runs the evaluation for an individual dataset split, assuming all
+        predictions have been passed in.
 
         Args:
             dataset_name (str): the dataset split name which should be evalated.
         """
-        
+
         if not dataset_name in self.results:
-            
+
             # run evaluation and cache
             self.results[dataset_name] = self.evaluators[dataset_name].evaluate()
 
         results = self.results[dataset_name]
 
         logger.info('\n'+results['log_str_2D'].replace('mode=2D', '{} iter={} mode=2D'.format(dataset_name, self.iter_label)))
-            
+
         # store the partially accumulated evaluations per category per area
         for key, item in results['bbox_2D_evals_per_cat_area'].items():
             if not key in self.evals_per_cat_area2D:
@@ -325,9 +325,9 @@ class Omni3DEvaluationHelper:
         # full model category names
         category_names = self.filter_settings['category_names']
 
-        # The set of categories present in the dataset; there should be no duplicates 
+        # The set of categories present in the dataset; there should be no duplicates
         categories = {cat for cat in category_names if 'AP-{}'.format(cat) in results['bbox_2D']}
-        assert len(categories) == len(set(categories)) 
+        assert len(categories) == len(set(categories))
 
         # default are all NaN
         general_2D, general_3D, omni_2D, omni_3D = (np.nan,) * 4
@@ -343,7 +343,7 @@ class Omni3DEvaluationHelper:
             omni_2D = np.mean([results['bbox_2D']['AP-{}'.format(cat)] for cat in omni3d_dataset_categories])
             if not self.only_2d:
                 omni_3D = np.mean([results['bbox_3D']['AP-{}'.format(cat)] for cat in omni3d_dataset_categories])
-        
+
         self.results_omni3d[dataset_name] = {"iters": self.iter_label, "AP2D": omni_2D, "AP3D": omni_3D}
 
         # Performance analysis
@@ -357,9 +357,9 @@ class Omni3DEvaluationHelper:
             extras_APf = results['bbox_3D']['APf']
 
         self.results_analysis[dataset_name] = {
-            "iters": self.iter_label, 
-            "AP2D": general_2D, "AP3D": general_3D, 
-            "AP3D@15": extras_AP15, "AP3D@25": extras_AP25, "AP3D@50": extras_AP50, 
+            "iters": self.iter_label,
+            "AP2D": general_2D, "AP3D": general_3D,
+            "AP3D@15": extras_AP15, "AP3D@25": extras_AP25, "AP3D@50": extras_AP50,
             "AP3D-N": extras_APn, "AP3D-M": extras_APm, "AP3D-F": extras_APf
         }
 
@@ -378,9 +378,9 @@ class Omni3DEvaluationHelper:
     def summarize_all(self,):
         '''
         Report collective metrics when possible for the the Omni3D dataset.
-        This uses pre-computed evaluation results from each dataset, 
-        which were aggregated and cached while evaluating individually. 
-        This process simply re-accumulate and summarizes them. 
+        This uses pre-computed evaluation results from each dataset,
+        which were aggregated and cached while evaluating individually.
+        This process simply re-accumulate and summarizes them.
         '''
 
         # First, double check that we have all the evaluations
@@ -401,7 +401,7 @@ class Omni3DEvaluationHelper:
         evaluator2D._paramsEval = copy.deepcopy(evaluator2D.params)
         evaluator2D.accumulate()
         summarize_str2D = evaluator2D.summarize()
-        
+
         precisions = evaluator2D.eval['precision']
 
         metrics = ["AP", "AP50", "AP75", "AP95", "APs", "APm", "APl"]
@@ -427,7 +427,7 @@ class Omni3DEvaluationHelper:
         evaluator3D._paramsEval = copy.deepcopy(evaluator3D.params)
         evaluator3D.accumulate()
         summarize_str3D = evaluator3D.summarize()
-        
+
         precisions = evaluator3D.eval['precision']
 
         metrics = ["AP", "AP15", "AP25", "AP50", "APn", "APm", "APf"]
@@ -464,9 +464,9 @@ class Omni3DEvaluationHelper:
             extras_APf = results3D['APf']
 
         self.results_analysis["<Concat>"] = {
-            "iters": self.iter_label, 
-            "AP2D": general_2D, "AP3D": general_3D, 
-            "AP3D@15": extras_AP15, "AP3D@25": extras_AP25, "AP3D@50": extras_AP50, 
+            "iters": self.iter_label,
+            "AP2D": general_2D, "AP3D": general_3D,
+            "AP3D@15": extras_AP15, "AP3D@25": extras_AP25, "AP3D@50": extras_AP50,
             "AP3D-N": extras_APn, "AP3D-M": extras_APm, "AP3D-F": extras_APf
         }
 
@@ -513,7 +513,7 @@ class Omni3DEvaluationHelper:
                     cat_3D = results3D['AP-{}'.format(cat)]
             if not np.isnan(cat_2D) or not np.isnan(cat_3D):
                 results_cat[cat] = {"AP2D": cat_2D, "AP3D": cat_3D}
-        
+
         utils_logperf.print_ap_category_histogram("<Concat>", results_cat)
         utils_logperf.print_ap_analysis_histogram(self.results_analysis)
         utils_logperf.print_ap_omni_histogram(self.results_omni3d)
@@ -521,7 +521,7 @@ class Omni3DEvaluationHelper:
 
 def inference_on_dataset(model, data_loader):
     """
-    Run model on the data_loader. 
+    Run model on the data_loader.
     Also benchmark the inference speed of `model.__call__` accurately.
     The model will be used in eval mode.
 
@@ -538,7 +538,7 @@ def inference_on_dataset(model, data_loader):
     Returns:
         The return value of `evaluator.evaluate()`
     """
-    
+
     num_devices = get_world_size()
     distributed = num_devices > 1
     logger.info("Start inference on {} batches".format(len(data_loader)))
@@ -752,7 +752,7 @@ class Omni3DEvaluator(COCOEvaluator):
                 prediction["instances"] = output["instances"]
 
             # tensor instances format
-            else: 
+            else:
                 instances = output["instances"].to(self._cpu_device)
                 prediction["instances"] = instances_to_coco_json(
                     instances, input["image_id"]
@@ -803,7 +803,7 @@ class Omni3DEvaluator(COCOEvaluator):
 
         if class_names is None or len(class_names) <= 1:
             return results
-        
+
         # Compute per-category AP
         # from https://github.com/facebookresearch/Detectron/blob/a6a835f5b8208c45d0dce217ce9bbda915f44df7/detectron/datasets/json_dataset_evaluator.py#L222-L252 # noqa
         precisions = omni_eval.eval["precision"]
@@ -850,9 +850,9 @@ class Omni3DEvaluator(COCOEvaluator):
         omni3d_global_categories = MetadataCatalog.get('omni3d_model').thing_classes
 
         # the dataset results will store only the categories that are present
-        # in the corresponding dataset, all others will be dropped. 
+        # in the corresponding dataset, all others will be dropped.
         dataset_results = []
-        
+
         # unmap the category ids for COCO
         if hasattr(self._metadata, "thing_dataset_id_to_contiguous_id"):
             dataset_id_to_contiguous_id = (
@@ -881,7 +881,7 @@ class Omni3DEvaluator(COCOEvaluator):
                     dataset_results.append(result)
 
         # replace the results with the filtered
-        # instances that are in vocabulary. 
+        # instances that are in vocabulary.
         omni_results = dataset_results
 
         if self._output_dir:
@@ -928,7 +928,7 @@ class Omni3DEvaluator(COCOEvaluator):
                 self._results[task + "_" + format(mode) + '_evals_per_cat_area'] = evals[mode].evals_per_cat_area
 
             self._results["log_str_2D"] = log_strs["2D"]
-            
+
             if "3D" in log_strs:
                 self._results["log_str_3D"] = log_strs["3D"]
 
@@ -1119,9 +1119,9 @@ class Omni3Deval(COCOeval):
         self.eval_prox = eval_prox
         self.cocoGt = cocoGt  # ground truth COCO API
         self.cocoDt = cocoDt  # detections COCO API
-        
+
         # per-image per-category evaluation results [KxAxI] elements
-        self.evalImgs = defaultdict(list) 
+        self.evalImgs = defaultdict(list)
 
         self.eval = {}  # accumulated evaluation results
         self._gts = defaultdict(list)  # gt for evaluation
@@ -1141,13 +1141,13 @@ class Omni3Deval(COCOeval):
         """
         Prepare ._gts and ._dts for evaluation based on params
         """
-        
+
         p = self.params
 
         if p.useCats:
             gts = self.cocoGt.loadAnns(self.cocoGt.getAnnIds(imgIds=p.imgIds, catIds=p.catIds))
             dts = self.cocoDt.loadAnns(self.cocoDt.getAnnIds(imgIds=p.imgIds, catIds=p.catIds))
-        
+
         else:
             gts = self.cocoGt.loadAnns(self.cocoGt.getAnnIds(imgIds=p.imgIds))
             dts = self.cocoDt.loadAnns(self.cocoDt.getAnnIds(imgIds=p.imgIds))
@@ -1217,7 +1217,7 @@ class Omni3Deval(COCOeval):
         A0 = len(_pe.areaRng)
 
         has_precomputed_evals = not (self.evals_per_cat_area is None)
-        
+
         if has_precomputed_evals:
             evals_per_cat_area = self.evals_per_cat_area
         else:
@@ -1260,8 +1260,8 @@ class Omni3Deval(COCOeval):
                     tps = np.logical_and(               dtm,  np.logical_not(dtIg) )
                     fps = np.logical_and(np.logical_not(dtm), np.logical_not(dtIg) )
 
-                    tp_sum = np.cumsum(tps, axis=1).astype(dtype=np.float)
-                    fp_sum = np.cumsum(fps, axis=1).astype(dtype=np.float)
+                    tp_sum = np.cumsum(tps, axis=1).astype(dtype=np.float32)
+                    fp_sum = np.cumsum(fps, axis=1).astype(dtype=np.float32)
 
                     for t, (tp, fp) in enumerate(zip(tp_sum, fp_sum)):
                         tp = np.array(tp)
@@ -1287,7 +1287,7 @@ class Omni3Deval(COCOeval):
                                 pr[i-1] = pr[i]
 
                         inds = np.searchsorted(rc, p.recThrs, side='left')
-                        
+
                         try:
                             for ri, pi in enumerate(inds):
                                 q[ri] = pr[pi]
@@ -1308,7 +1308,7 @@ class Omni3Deval(COCOeval):
             'recall':   recall,
             'scores': scores,
         }
-        
+
         toc = time.time()
         print('DONE (t={:0.2f}s).'.format( toc-tic))
 
@@ -1318,7 +1318,7 @@ class Omni3Deval(COCOeval):
         """
 
         print("Running per image evaluation...")
-        
+
         p = self.params
         print("Evaluate annotation type *{}*".format(p.iouType))
 
@@ -1332,7 +1332,7 @@ class Omni3Deval(COCOeval):
         self.params = p
 
         self._prepare()
-        
+
         catIds = p.catIds if p.useCats else [-1]
 
         # loop through images, area range, max detection number
@@ -1361,7 +1361,7 @@ class Omni3Deval(COCOeval):
         ComputeIoU computes the IoUs by sorting based on "score"
         for either 2D boxes (in 2D mode) or 3D boxes (in 3D mode)
         """
-        
+
         device = (torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu"))
 
         p = self.params
@@ -1399,13 +1399,13 @@ class Omni3Deval(COCOeval):
             ious = maskUtils.iou(d, g, iscrowd)
 
         elif len(d) > 0 and len(g) > 0:
-            
+
             # For 3D eval, we want to run IoU in CUDA if available
             if torch.cuda.is_available() and len(d) * len(g) < MAX_DTS_CROSS_GTS_FOR_IOU3D:
-                device = torch.device("cuda:0") 
+                device = torch.device("cuda:0")
             else:
                 device = torch.device("cpu")
-            
+
             dd = torch.tensor(d, device=device, dtype=torch.float32)
             gg = torch.tensor(g, device=device, dtype=torch.float32)
 
@@ -1427,7 +1427,7 @@ class Omni3Deval(COCOeval):
 
             else:
                 in_prox = ious2d > p.proximity_thresh
-        
+
         return ious, in_prox
 
     def evaluateImg(self, imgId, catId, aRng, maxDet):
@@ -1600,7 +1600,7 @@ class Omni3Deval(COCOeval):
 
             if len(s[s > -1]) == 0:
                 mean_s = -1
-                
+
             else:
                 mean_s = np.mean(s[s > -1])
 
@@ -1609,7 +1609,7 @@ class Omni3Deval(COCOeval):
 
             log_str += "mode={} ".format(mode) + \
                 iStr.format(titleStr, typeStr, iouStr, areaRng, maxDets, mean_s)
-            
+
             return mean_s, log_str
 
         def _summarizeDets(mode):
@@ -1693,7 +1693,7 @@ class Omni3Deval(COCOeval):
                 maxDets=params.maxDets[2],
                 log_str=log_str,
             )
-            
+
             return stats, log_str
 
         if not self.eval:
